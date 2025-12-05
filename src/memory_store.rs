@@ -6,6 +6,8 @@ enum Commands {
     Set,
     Get,
     Delete,
+    Clear,
+    Exit,
 }
 
 struct Command {
@@ -15,22 +17,18 @@ struct Command {
 }
 
 fn parse_arguments(line: String) -> Result<Command, String> {
-    let l = line.clone();
+    let mut args = line.split_whitespace();
 
-    let mut args = l.split_whitespace();
-
-    let command = match args.next().unwrap() {
-        "set" => Commands::Set,
-        "get" => Commands::Get,
-        "delete" => Commands::Delete,
-        "exit" => process::exit(0),
+    let command = match args.next() {
+        Some("set") => Commands::Set,
+        Some("get") => Commands::Get,
+        Some("delete") => Commands::Delete,
+        Some("clear") => Commands::Clear,
+        Some("exit") => Commands::Exit,
         _ => return Err("Unknown command".to_string()),
     };
 
-    let key = match args.next() {
-        Some(arg) => arg.to_string(),
-        None => return Err("No name found".to_string()),
-    };
+    let key = args.next().unwrap_or("default").to_string();
 
     let value: Option<String> = match args.next() {
         Some(arg) => Some(arg.to_string()),
@@ -44,44 +42,84 @@ fn parse_arguments(line: String) -> Result<Command, String> {
     })
 }
 
-fn execute_command(command: Command, store: &mut HashMap<String, String>) -> Result<(), String> {
+fn require_key(command: &Command) -> Result<(), String> {
+    if command.key.len() > 0 {
+        Ok(())
+    } else {
+        Err("Key required length > 0".to_string())
+    }
+}
+
+fn require_value(command: &Command) -> Result<(), String> {
+    match &command.value {
+        Some(value) => {
+            if value.len() > 0 {
+                Ok(())
+            } else {
+                Err("Value required length > 0".to_string())
+            }
+        }
+        None => Err("Value required length > 0".to_string()),
+    }
+}
+
+fn execute_command(
+    command: Command,
+    store: &mut HashMap<String, String>,
+) -> Result<String, String> {
     match command.command {
         Commands::Set => {
+            require_key(&command)?;
+            require_value(&command)?;
             store.insert(command.key.clone(), command.value.clone().unwrap());
-            println!("key: {}, value: {}", command.key, command.value.unwrap());
-            Ok(())
+            Ok(format!(
+                "key: {}, value: {}",
+                command.key,
+                command.value.unwrap()
+            ))
         }
         Commands::Get => {
+            require_key(&command)?;
             match store.get(&command.key) {
-                Some(value) => println!("key: {}, value: {}", command.key, value),
-                None => println!("key '{}' does not exist", command.key),
+                Some(value) => Ok(format!("key: {}, value: {}", command.key, value)),
+                None => Ok(format!("key '{}' does not exist", command.key)),
             }
-            Ok(())
         }
         Commands::Delete => {
+            require_key(&command)?;
             store.remove(&command.key);
-            println!("key removed: {}", command.key);
-            Ok(())
+            Ok(format!("key removed: {}", command.key))
         }
+        Commands::Clear => {
+            store.clear();
+            Ok(format!("database cleared"))
+        }
+        Commands::Exit => process::exit(0),
     }
 }
 
 pub fn runtime(config: Config) -> Result<(), String> {
     let mut store: HashMap<String, String> = HashMap::new();
 
-    loop {
-        let stdin = io::stdin();
-        let lines = stdin.lines();
-        for line in lines {
-            let command = match parse_arguments(line.unwrap()) {
-                Ok(c) => c,
-                Err(e) => {
-                    eprintln!("{}", e);
-                    continue;
-                }
-            };
+    let stdin = io::stdin();
+    let lines = stdin.lines();
+    for line in lines {
+        let command = match parse_arguments(line.unwrap()) {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("{}", e);
+                continue;
+            }
+        };
 
-            execute_command(command, &mut store).unwrap()
+        match execute_command(command, &mut store) {
+            Ok(output) => println!("{}", output),
+            Err(e) => {
+                eprintln!("{}", e);
+                continue;
+            }
         }
     }
+
+    Ok(())
 }
