@@ -30,10 +30,7 @@ fn parse_arguments(line: String) -> Result<Command, String> {
 
     let key = args.next().unwrap_or("default").to_string();
 
-    let value: Option<String> = match args.next() {
-        Some(arg) => Some(arg.to_string()),
-        None => None,
-    };
+    let value = args.next().map(|v| v.to_string());
 
     Ok(Command {
         command,
@@ -51,16 +48,12 @@ fn require_key(command: &Command) -> Result<(), String> {
 }
 
 fn require_value(command: &Command) -> Result<(), String> {
-    match &command.value {
-        Some(value) => {
-            if value.len() > 0 {
-                Ok(())
-            } else {
-                Err("Value required length > 0".to_string())
-            }
+    if let Some(value) = &command.value {
+        if !value.is_empty() {
+            return Ok(())
         }
-        None => Err("Value required length > 0".to_string()),
     }
+    Err("Value required length > 0".to_string())
 }
 
 fn execute_command(
@@ -71,11 +64,13 @@ fn execute_command(
         Commands::Set => {
             require_key(&command)?;
             require_value(&command)?;
-            store.insert(command.key.clone(), command.value.clone().unwrap());
+            let key = command.key;
+            let value = command.value.unwrap();
+            store.insert(key.clone(), value.clone());
             Ok(format!(
                 "key: {}, value: {}",
-                command.key,
-                command.value.unwrap()
+                key,
+                value
             ))
         }
         Commands::Get => {
@@ -100,10 +95,9 @@ fn execute_command(
 
 pub fn runtime(config: Config) -> Result<(), String> {
     let mut store: HashMap<String, String> = HashMap::new();
-
     let stdin = io::stdin();
-    let lines = stdin.lines();
-    for line in lines {
+
+    for line in stdin.lines() {
         let command = match parse_arguments(line.unwrap()) {
             Ok(c) => c,
             Err(e) => {
