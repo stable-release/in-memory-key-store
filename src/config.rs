@@ -2,8 +2,8 @@ use std::{
     collections::HashMap,
     env::{self, Args},
     fs::{self, File},
-    io::{BufReader, Read},
-    path::{Path, PathBuf},
+    io::BufReader,
+    path::PathBuf,
 };
 
 use serde_json::Value;

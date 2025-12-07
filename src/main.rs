@@ -1,4 +1,5 @@
-use memory_store::{config::Config, memory_store::{runtime}};
+use memory_store::{config::Config, repl::runtime};
+
 
 fn main() {
     let config = Config::build().unwrap();

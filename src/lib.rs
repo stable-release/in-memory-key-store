@@ -1,3 +1,4 @@
 mod tests;
 pub mod config;
-pub mod memory_store;
+pub mod store;
+pub mod repl;

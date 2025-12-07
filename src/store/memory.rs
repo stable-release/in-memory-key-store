@@ -1,8 +1,8 @@
 use std::{
-    collections::HashMap, fmt::format, fs::{self, OpenOptions}, io::{self, Write}, path::PathBuf, process
+    collections::HashMap, path::PathBuf, process
 };
 
-use crate::config::Config;
+use crate::store::persistence::{write_local};
 
 enum Commands {
     Set,
@@ -22,46 +22,15 @@ impl Commands {
     //         _ => Ok(())
     //     }
     // }
-    fn execute(
-        &self,
-        store: &mut HashMap<String, String>,
-        config_path: PathBuf,
-    ) -> Result<(), String> {
-        let overwrite_path = if !fs::exists(&config_path).unwrap_or(true) {
-            let p = PathBuf::from("local_storage_overwite.json");
-            fs::write(&p, "").unwrap();
-            p
-        } else {
-            let p = config_path.to_str().unwrap();
-            let p = PathBuf::from(p.replace(".json", "_overwrite.json"));
-            fs::write(&p, "").unwrap();
-            p
-        };
-
-        let mut file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open(&overwrite_path)
-            .unwrap();
-
-        // First write to new file
-        let convert = serde_json::to_string(store).unwrap();
-        file.write_all(convert.as_bytes()).unwrap();
-        // Then remove old file
-        fs::remove_file(&config_path).unwrap();
-        // Rename overwrite as main local storage file
-        fs::rename(overwrite_path, config_path).unwrap();
-        Ok(())
-    }
 }
 
-struct Command {
+pub struct Command {
     command: Commands,
     key: String,
     value: Option<String>,
 }
 
-fn parse_arguments(line: String) -> Result<Command, String> {
+pub fn parse_arguments(line: String) -> Result<Command, String> {
     let mut args = line.split_whitespace();
 
     let command = match args.next() {
@@ -85,7 +54,7 @@ fn parse_arguments(line: String) -> Result<Command, String> {
     })
 }
 
-fn execute_command(
+pub fn execute_command(
     command: Command,
     config_path: PathBuf,
     store: &mut HashMap<String, String>,
@@ -97,7 +66,7 @@ fn execute_command(
             let key = command.key;
             let value = command.value.unwrap();
             store.insert(key.clone(), value.clone());
-            command.command.execute(store, config_path).unwrap();
+            write_local(store, config_path).unwrap();
 
             Ok(format!("key: {}, value: {}", key, value))
         }
@@ -118,52 +87,16 @@ fn execute_command(
         Commands::Delete => {
             require_key(&command)?;
             store.remove(&command.key);
-            command.command.execute(store, config_path).unwrap();
+            write_local(store, config_path).unwrap();
             Ok(format!("key removed: {}", command.key))
         }
         Commands::Clear => {
             store.clear();
-            command.command.execute(store, config_path).unwrap();
+            write_local(store, config_path).unwrap();
             Ok(format!("database cleared"))
         }
         Commands::Exit => process::exit(0),
     }
-}
-
-// Loading Config for possible persistence
-pub fn runtime(config: Config) -> Result<(), String> {
-    let mut store = match config.load_config() {
-        Ok(s) => s,
-        Err(e) => return Err(e),
-    };
-
-    // let mut store: HashMap<String, String> = HashMap::new();
-    let stdin = io::stdin();
-
-    for line in stdin.lines() {
-        let command = match parse_arguments(line.unwrap()) {
-            Ok(c) => c,
-            Err(e) => {
-                eprintln!("{}", e);
-                continue;
-            }
-        };
-
-        let path = match config.return_local_storage_path() {
-            Ok(p) => p,
-            Err(_) => PathBuf::from("local_storage_overwrite.json"),
-        };
-
-        match execute_command(command, path, &mut store) {
-            Ok(output) => println!("{}", output),
-            Err(e) => {
-                eprintln!("{}", e);
-                continue;
-            }
-        }
-    }
-
-    Ok(())
 }
 
 fn require_key(command: &Command) -> Result<(), String> {
