@@ -42,10 +42,14 @@ impl Config {
         let v: Value = serde_json::from_reader(reader).unwrap();
 
         for (key, value) in v.as_object().unwrap() {
-            println!("{:?} {:?}", key, value.as_str().unwrap());
+            // println!("{:?} {:?}", key, value.as_str().unwrap());
             store.insert(key.to_owned(), value.as_str().unwrap().to_owned());
         }
 
         Ok(store)
+    }
+
+    pub fn return_local_storage_path(&self) -> Result<PathBuf, String> {
+        Ok(self.local_storage.clone())
     }
 }
