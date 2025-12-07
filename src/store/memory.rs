@@ -1,10 +1,9 @@
-use std::{
-    collections::HashMap, path::PathBuf, process
-};
+use std::{collections::HashMap, path::PathBuf, process};
 
-use crate::store::persistence::{write_local};
+use crate::store::persistence::write_local;
 
-enum Commands {
+#[derive(Debug, PartialEq)]
+pub enum Commands {
     Set,
     Get,
     List,
@@ -114,4 +113,262 @@ fn require_value(command: &Command) -> Result<(), String> {
         }
     }
     Err("Value required length > 0".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use super::*;
+
+    #[test]
+    fn set_valid() {
+        let _config = crate::config::Config::build().unwrap();
+        let mut store = HashMap::new();
+        let key = "&".to_string();
+        let value = "b".to_string();
+        let cmd = parse_arguments("set & b".to_string()).unwrap();
+        assert_eq!(cmd.command, Commands::Set);
+        assert_eq!(cmd.key, key);
+        assert_eq!(cmd.value, Some(value));
+
+        let path = PathBuf::from("local_storage.json");
+        let exec = execute_command(cmd, path, &mut store);
+        assert_eq!(
+            exec,
+            Ok(format!("key: {}, value: {}", key, "b".to_string()))
+        );
+        assert!(fs::exists("local_storage.json").unwrap());
+
+        let file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open("local_storage.json")
+            .unwrap();
+        let reader = std::io::BufReader::new(file);
+        let v: serde_json::Value = serde_json::from_reader(reader).unwrap();
+        assert_eq!("{\"&\":\"b\"}", v.to_string());
+    }
+
+    #[test]
+    fn get_valid() {
+        let _config = crate::config::Config::build().unwrap();
+        let mut store = HashMap::new();
+        let key = "&".to_string();
+        let value = "b".to_string();
+        let mut cmd = parse_arguments("set & b".to_string()).unwrap();
+        assert_eq!(cmd.command, Commands::Set);
+        assert_eq!(cmd.key, key);
+        assert_eq!(cmd.value, Some(value));
+
+        let path = PathBuf::from("local_storage.json");
+        let mut exec = execute_command(cmd, path.clone(), &mut store);
+        assert_eq!(
+            exec,
+            Ok(format!("key: {}, value: {}", key, "b".to_string()))
+        );
+        assert!(fs::exists("local_storage.json").unwrap());
+
+        cmd = parse_arguments("get &".to_string()).unwrap();
+        assert_eq!(cmd.command, Commands::Get);
+        assert_eq!(cmd.key, key);
+        assert_eq!(cmd.value, None);
+
+        exec = execute_command(cmd, path, &mut store);
+        assert_eq!(
+            exec,
+            Ok(format!("key: {}, value: {}", key, "b".to_string()))
+        );
+
+        let file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open("local_storage.json")
+            .unwrap();
+        let reader = std::io::BufReader::new(file);
+        let v: serde_json::Value = serde_json::from_reader(reader).unwrap();
+        assert_eq!("{\"&\":\"b\"}", v.to_string());
+    }
+
+    #[test]
+    fn list_valid() {
+        let _config = crate::config::Config::build().unwrap();
+        let mut store = HashMap::new();
+        let key = "&".to_string();
+        let value = "b".to_string();
+        let mut cmd = parse_arguments("set & b".to_string()).unwrap();
+        assert_eq!(cmd.command, Commands::Set);
+        assert_eq!(cmd.key, key);
+        assert_eq!(cmd.value, Some(value));
+
+        let path = PathBuf::from("local_storage.json");
+        let mut exec = execute_command(cmd, path.clone(), &mut store);
+        assert_eq!(
+            exec,
+            Ok(format!("key: {}, value: {}", key, "b".to_string()))
+        );
+        assert!(fs::exists("local_storage.json").unwrap());
+
+        cmd = parse_arguments("list".to_string()).unwrap();
+        assert_eq!(cmd.command, Commands::List);
+        assert_eq!(cmd.key, "default");
+        assert_eq!(cmd.value, None);
+
+        exec = execute_command(cmd, path, &mut store);
+        assert_eq!(
+            exec,
+            Ok(format!("[\"key '{}', value '{}'\"]", key, "b".to_string()))
+        );
+
+        let file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open("local_storage.json")
+            .unwrap();
+        let reader = std::io::BufReader::new(file);
+        let v: serde_json::Value = serde_json::from_reader(reader).unwrap();
+        assert_eq!("{\"&\":\"b\"}", v.to_string());
+    }
+
+    #[test]
+    fn delete_valid() {
+        let _config = crate::config::Config::build().unwrap();
+        let mut store = HashMap::new();
+        let key = "&".to_string();
+        let value = "b".to_string();
+        let mut cmd = parse_arguments("set & b".to_string()).unwrap();
+        assert_eq!(cmd.command, Commands::Set);
+        assert_eq!(cmd.key, key);
+        assert_eq!(cmd.value, Some(value));
+
+        let path = PathBuf::from("local_storage.json");
+        let mut exec = execute_command(cmd, path.clone(), &mut store);
+        assert_eq!(
+            exec,
+            Ok(format!("key: {}, value: {}", key, "b".to_string()))
+        );
+        assert!(fs::exists("local_storage.json").unwrap());
+
+        cmd = parse_arguments("delete &".to_string()).unwrap();
+        assert_eq!(cmd.command, Commands::Delete);
+        assert_eq!(cmd.key, "&");
+        assert_eq!(cmd.value, None);
+
+        exec = execute_command(cmd, path, &mut store);
+        assert_eq!(exec, Ok(format!("key removed: &")));
+
+        let file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open("local_storage.json")
+            .unwrap();
+        let reader = std::io::BufReader::new(file);
+        let v: serde_json::Value = serde_json::from_reader(reader).unwrap();
+        assert_eq!("{}", v.to_string());
+    }
+
+    #[test]
+    fn clear_valid() {
+        let _config = crate::config::Config::build().unwrap();
+        let mut store = HashMap::new();
+        let mut key = "&".to_string();
+        let mut value = "b".to_string();
+        let mut cmd = parse_arguments("set & b".to_string()).unwrap();
+        assert_eq!(cmd.command, Commands::Set);
+        assert_eq!(cmd.key, key);
+        assert_eq!(cmd.value, Some(value.clone()));
+
+        let path = PathBuf::from("local_storage.json");
+        let mut exec = execute_command(cmd, path.clone(), &mut store);
+        assert_eq!(
+            exec,
+            Ok(format!("key: {}, value: {}", key, "b".to_string()))
+        );
+        assert!(fs::exists("local_storage.json").unwrap());
+
+        key = "70".to_string();
+        value = "asdf".to_string();
+        cmd = parse_arguments("set 70 asdf".to_string()).unwrap();
+        assert_eq!(cmd.command, Commands::Set);
+        assert_eq!(cmd.key, key);
+        assert_eq!(cmd.value, Some(value));
+
+        exec = execute_command(cmd, path.clone(), &mut store);
+        assert_eq!(
+            exec,
+            Ok(format!("key: {}, value: {}", key, "asdf".to_string()))
+        );
+
+        cmd = parse_arguments("clear".to_string()).unwrap();
+        assert_eq!(cmd.command, Commands::Clear);
+        assert_eq!(cmd.key, "default");
+        assert_eq!(cmd.value, None);
+
+        exec = execute_command(cmd, path, &mut store);
+        assert_eq!(exec, Ok(format!("database cleared")));
+
+        let file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open("local_storage.json")
+            .unwrap();
+        let reader = std::io::BufReader::new(file);
+        let v: serde_json::Value = serde_json::from_reader(reader).unwrap();
+        assert_eq!("{}", v.to_string());
+    }
+
+    #[test]
+    fn exit_no_exit_process() {
+        let _config = crate::config::Config::build().unwrap();
+        let mut store = HashMap::new();
+        let mut key = "&".to_string();
+        let mut value = "b".to_string();
+        let mut cmd = parse_arguments("set & b".to_string()).unwrap();
+        assert_eq!(cmd.command, Commands::Set);
+        assert_eq!(cmd.key, key);
+        assert_eq!(cmd.value, Some(value.clone()));
+
+        let path = PathBuf::from("local_storage.json");
+        let mut exec = execute_command(cmd, path.clone(), &mut store);
+        assert_eq!(
+            exec,
+            Ok(format!("key: {}, value: {}", key, "b".to_string()))
+        );
+        assert!(fs::exists("local_storage.json").unwrap());
+
+        key = "70".to_string();
+        value = "asdf".to_string();
+        cmd = parse_arguments("set 70 asdf".to_string()).unwrap();
+        assert_eq!(cmd.command, Commands::Set);
+        assert_eq!(cmd.key, key);
+        assert_eq!(cmd.value, Some(value));
+
+        exec = execute_command(cmd, path.clone(), &mut store);
+        assert_eq!(
+            exec,
+            Ok(format!("key: {}, value: {}", key, "asdf".to_string()))
+        );
+
+        cmd = parse_arguments("clear".to_string()).unwrap();
+        assert_eq!(cmd.command, Commands::Clear);
+        assert_eq!(cmd.key, "default");
+        assert_eq!(cmd.value, None);
+
+        exec = execute_command(cmd, path.clone(), &mut store);
+        assert_eq!(exec, Ok(format!("database cleared")));
+
+        let file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open("local_storage.json")
+            .unwrap();
+        let reader = std::io::BufReader::new(file);
+        let v: serde_json::Value = serde_json::from_reader(reader).unwrap();
+        assert_eq!("{}", v.to_string());
+
+        cmd = parse_arguments("exit".to_string()).unwrap();
+        assert_eq!(cmd.command, Commands::Exit);
+        assert_eq!(cmd.key, "default");
+        assert_eq!(cmd.value, None);
+    }
 }

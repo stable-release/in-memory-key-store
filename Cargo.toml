@@ -5,3 +5,6 @@ edition = "2024"
 
 [dependencies]
 serde_json = "1.0.145"
+
+[target.'cfg(test)']
+runner = "rustc --test-threads=1"

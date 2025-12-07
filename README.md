@@ -1,4 +1,5 @@
 This README is here to remind myself how this persisted REPL key-value storage works.
+- Run tests with: `cargo test -- --test-threads=1` due to file persistence
 
 - Supported command handlers:
     1. set
