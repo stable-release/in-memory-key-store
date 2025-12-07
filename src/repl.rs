@@ -36,3 +36,16 @@ pub fn runtime(config: crate::config::Config) -> Result<(), String> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    // use crate::repl::runtime;
+
+
+    // #[test]
+    // fn repl_valid() {
+    //         let config = crate::config::Config::build().unwrap();
+    //         let repl = runtime(config);
+    // }
+
+}

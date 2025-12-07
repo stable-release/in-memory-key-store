@@ -1,6 +1,9 @@
 use std::{collections::HashMap, fs, io::Write, path::PathBuf};
 
-pub fn write_local(store: &mut HashMap<String, String>, config_path: PathBuf) -> Result<(), String> {
+pub fn write_local(
+    store: &mut HashMap<String, String>,
+    config_path: PathBuf,
+) -> Result<(), String> {
     let overwrite_path = if !fs::exists(&config_path).unwrap_or(true) {
         let p = PathBuf::from("local_storage_overwite.json");
         fs::write(&p, "").unwrap();
@@ -26,4 +29,29 @@ pub fn write_local(store: &mut HashMap<String, String>, config_path: PathBuf) ->
     // Rename overwrite as main local storage file
     fs::rename(overwrite_path, config_path).unwrap();
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use crate::store::persistence::write_local;
+
+    #[test]
+    fn write_local_valid() {
+        let config = crate::config::Config::build().unwrap();
+        let mut store: HashMap<String, String> = std::collections::HashMap::new();
+        store.insert("vKey".to_string(), "kValue".to_string());
+        let write = write_local(&mut store, config.return_local_storage_path().unwrap());
+        assert_eq!(write, Ok(()));
+        assert!(std::fs::exists("local_storage.json").unwrap());
+        let file = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open("local_storage.json")
+            .unwrap();
+        let reader = std::io::BufReader::new(file);
+        let v: serde_json::Value = serde_json::from_reader(reader).unwrap();
+        assert_eq!("{\"vKey\":\"kValue\"}", v.to_string());
+    }
 }
