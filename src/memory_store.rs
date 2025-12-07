@@ -93,8 +93,16 @@ fn execute_command(
     }
 }
 
+// Loading Config for possible persistence
 pub fn runtime(config: Config) -> Result<(), String> {
-    let mut store: HashMap<String, String> = HashMap::new();
+    let mut store = match config.load_config() {
+        Ok(s) => s,
+        Err(e) => {
+            return Err(e)
+        }
+    };
+
+    // let mut store: HashMap<String, String> = HashMap::new();
     let stdin = io::stdin();
 
     for line in stdin.lines() {
