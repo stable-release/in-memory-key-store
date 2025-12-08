@@ -10,16 +10,16 @@ use serde_json::Value;
 
 pub struct Config {
     local_storage: PathBuf,
-    in_memory: Arc<RwLock<HashMap<String, String>>>
+    memory_store: Arc<RwLock<HashMap<String, String>>>
 }
 
 impl Config {
     fn new(_args: Args) -> Config {
-        let path = PathBuf::from("local_storage.json");
-        let lock: Arc<RwLock<HashMap<String,String>>> = Arc::new(RwLock::new(HashMap::new()));
+        let local_storage = PathBuf::from("local_storage.json");
+        let memory_store: Arc<RwLock<HashMap<String,String>>> = Arc::new(RwLock::new(HashMap::new()));
         Config {
-            local_storage: path,
-            in_memory: lock
+            local_storage,
+            memory_store
         }
     }
 
@@ -36,9 +36,8 @@ impl Config {
         Ok(config)
     }
 
-    pub fn load_config(&self) -> Result<HashMap<String, String>, String> {
-        let mut store: HashMap<String, String> = HashMap::new();
-
+    pub fn load_config(&self) -> Result<Arc<RwLock<HashMap<String, String>>>, String> {
+        let store = Arc::clone(&self.memory_store);
         let file = File::open(&self.local_storage).unwrap();
         let reader = BufReader::new(file);
 
@@ -46,7 +45,7 @@ impl Config {
 
         for (key, value) in v.as_object().unwrap() {
             // println!("{:?} {:?}", key, value.as_str().unwrap());
-            store.insert(key.to_owned(), value.as_str().unwrap().to_owned());
+            store.write().unwrap().insert(key.to_owned(), value.as_str().unwrap().to_owned());
         }
 
         Ok(store)

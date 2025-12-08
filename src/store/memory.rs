@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf, process};
+use std::{collections::HashMap, path::PathBuf, process, sync::{Arc, RwLock}};
 
 use crate::store::persistence::write_local;
 
@@ -56,7 +56,7 @@ pub fn parse_arguments(line: String) -> Result<Command, String> {
 pub fn execute_command(
     command: Command,
     config_path: PathBuf,
-    store: &mut HashMap<String, String>,
+    store: Arc<RwLock<HashMap<String, String>>>,
 ) -> Result<String, String> {
     match command.command {
         Commands::Set => {
@@ -64,33 +64,33 @@ pub fn execute_command(
             require_value(&command)?;
             let key = command.key;
             let value = command.value.unwrap();
-            store.insert(key.clone(), value.clone());
+            store.write().unwrap().insert(key.clone(), value.clone());
             write_local(store, config_path).unwrap();
 
             Ok(format!("key: {}, value: {}", key, value))
         }
         Commands::Get => {
             require_key(&command)?;
-            match store.get(&command.key) {
+            match store.read().unwrap().get(&command.key) {
                 Some(value) => Ok(format!("key: {}, value: {}", command.key, value)),
                 None => Ok(format!("key '{}' does not exist", command.key)),
             }
         }
         Commands::List => {
             let mut list = Vec::new();
-            for k in store.keys() {
-                list.push(format!("key '{}', value '{}'", k, store.get(k).unwrap()));
+            for k in store.read().unwrap().keys() {
+                list.push(format!("key '{}', value '{}'", k, store.read().unwrap().get(k).unwrap()));
             }
             Ok(format!("{:?}", list))
         }
         Commands::Delete => {
             require_key(&command)?;
-            store.remove(&command.key);
+            store.write().unwrap().remove(&command.key);
             write_local(store, config_path).unwrap();
             Ok(format!("key removed: {}", command.key))
         }
         Commands::Clear => {
-            store.clear();
+            store.write().unwrap().clear();
             write_local(store, config_path).unwrap();
             Ok(format!("database cleared"))
         }

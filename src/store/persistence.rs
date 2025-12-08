@@ -1,7 +1,7 @@
-use std::{collections::HashMap, fs, io::Write, path::PathBuf};
+use std::{collections::HashMap, fs, io::Write, path::PathBuf, sync::{Arc, RwLock}};
 
 pub fn write_local(
-    store: &mut HashMap<String, String>,
+    store: Arc<RwLock<HashMap<String, String>>>,
     config_path: PathBuf,
 ) -> Result<(), String> {
     let overwrite_path = if !fs::exists(&config_path).unwrap_or(true) {
