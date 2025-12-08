@@ -22,7 +22,8 @@ pub fn write_local(
         .unwrap();
 
     // First write to new file
-    let convert = serde_json::to_string(store).unwrap();
+    let store_clone = store.read().unwrap();
+    let convert = serde_json::to_string(&*store_clone).unwrap();
     file.write_all(convert.as_bytes()).unwrap();
     // Then remove old file
     fs::remove_file(&config_path).unwrap();
@@ -33,16 +34,14 @@ pub fn write_local(
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use crate::store::persistence::write_local;
 
     #[test]
     fn write_local_valid() {
         let config = crate::config::Config::build().unwrap();
-        let mut store: HashMap<String, String> = std::collections::HashMap::new();
-        store.insert("vKey".to_string(), "kValue".to_string());
-        let write = write_local(&mut store, config.return_local_storage_path().unwrap());
+        let store = config.load_config().unwrap();
+        store.write().unwrap().insert("vKey".to_string(), "kValue".to_string());
+        let write = write_local(store, config.return_local_storage_path().unwrap());
         assert_eq!(write, Ok(()));
         assert!(std::fs::exists("local_storage.json").unwrap());
         let file = std::fs::OpenOptions::new()

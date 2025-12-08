@@ -3,7 +3,7 @@ use std::{io, path::PathBuf};
 use crate::store::memory::{execute_command, parse_arguments};
 
 pub fn runtime(config: crate::config::Config) -> Result<(), String> {
-    let mut store = match config.load_config() {
+    let store = match config.load_config() {
         Ok(s) => s,
         Err(e) => return Err(e),
     };
@@ -25,7 +25,7 @@ pub fn runtime(config: crate::config::Config) -> Result<(), String> {
             Err(_) => PathBuf::from("local_storage_overwrite.json"),
         };
 
-        match execute_command(command, path, &mut store) {
+        match execute_command(command, path, store.clone()) {
             Ok(output) => println!("{}", output),
             Err(e) => {
                 eprintln!("{}", e);

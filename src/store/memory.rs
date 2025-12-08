@@ -123,8 +123,8 @@ mod tests {
 
     #[test]
     fn set_valid() {
-        let _config = crate::config::Config::build().unwrap();
-        let mut store = HashMap::new();
+        let config = crate::config::Config::build().unwrap();
+        let store = config.load_config().unwrap();
         let key = "&".to_string();
         let value = "b".to_string();
         let cmd = parse_arguments("set & b".to_string()).unwrap();
@@ -133,7 +133,7 @@ mod tests {
         assert_eq!(cmd.value, Some(value));
 
         let path = PathBuf::from("local_storage.json");
-        let exec = execute_command(cmd, path, &mut store);
+        let exec = execute_command(cmd, path, store);
         assert_eq!(
             exec,
             Ok(format!("key: {}, value: {}", key, "b".to_string()))
@@ -152,8 +152,8 @@ mod tests {
 
     #[test]
     fn get_valid() {
-        let _config = crate::config::Config::build().unwrap();
-        let mut store = HashMap::new();
+        let config = crate::config::Config::build().unwrap();
+        let store = config.load_config().unwrap();
         let key = "&".to_string();
         let value = "b".to_string();
         let mut cmd = parse_arguments("set & b".to_string()).unwrap();
@@ -162,7 +162,7 @@ mod tests {
         assert_eq!(cmd.value, Some(value));
 
         let path = PathBuf::from("local_storage.json");
-        let mut exec = execute_command(cmd, path.clone(), &mut store);
+        let mut exec = execute_command(cmd, path.clone(), store.clone());
         assert_eq!(
             exec,
             Ok(format!("key: {}, value: {}", key, "b".to_string()))
@@ -174,7 +174,7 @@ mod tests {
         assert_eq!(cmd.key, key);
         assert_eq!(cmd.value, None);
 
-        exec = execute_command(cmd, path, &mut store);
+        exec = execute_command(cmd, path, store);
         assert_eq!(
             exec,
             Ok(format!("key: {}, value: {}", key, "b".to_string()))
@@ -192,8 +192,8 @@ mod tests {
 
     #[test]
     fn list_valid() {
-        let _config = crate::config::Config::build().unwrap();
-        let mut store = HashMap::new();
+        let config = crate::config::Config::build().unwrap();
+        let store = config.load_config().unwrap();
         let key = "&".to_string();
         let value = "b".to_string();
         let mut cmd = parse_arguments("set & b".to_string()).unwrap();
@@ -202,7 +202,7 @@ mod tests {
         assert_eq!(cmd.value, Some(value));
 
         let path = PathBuf::from("local_storage.json");
-        let mut exec = execute_command(cmd, path.clone(), &mut store);
+        let mut exec = execute_command(cmd, path.clone(), store.clone());
         assert_eq!(
             exec,
             Ok(format!("key: {}, value: {}", key, "b".to_string()))
@@ -214,7 +214,7 @@ mod tests {
         assert_eq!(cmd.key, "default");
         assert_eq!(cmd.value, None);
 
-        exec = execute_command(cmd, path, &mut store);
+        exec = execute_command(cmd, path, store);
         assert_eq!(
             exec,
             Ok(format!("[\"key '{}', value '{}'\"]", key, "b".to_string()))
@@ -232,8 +232,8 @@ mod tests {
 
     #[test]
     fn delete_valid() {
-        let _config = crate::config::Config::build().unwrap();
-        let mut store = HashMap::new();
+        let config = crate::config::Config::build().unwrap();
+        let store = config.load_config().unwrap();
         let key = "&".to_string();
         let value = "b".to_string();
         let mut cmd = parse_arguments("set & b".to_string()).unwrap();
@@ -242,7 +242,7 @@ mod tests {
         assert_eq!(cmd.value, Some(value));
 
         let path = PathBuf::from("local_storage.json");
-        let mut exec = execute_command(cmd, path.clone(), &mut store);
+        let mut exec = execute_command(cmd, path.clone(), store.clone());
         assert_eq!(
             exec,
             Ok(format!("key: {}, value: {}", key, "b".to_string()))
@@ -254,7 +254,7 @@ mod tests {
         assert_eq!(cmd.key, "&");
         assert_eq!(cmd.value, None);
 
-        exec = execute_command(cmd, path, &mut store);
+        exec = execute_command(cmd, path, store);
         assert_eq!(exec, Ok(format!("key removed: &")));
 
         let file = fs::OpenOptions::new()
@@ -269,8 +269,8 @@ mod tests {
 
     #[test]
     fn clear_valid() {
-        let _config = crate::config::Config::build().unwrap();
-        let mut store = HashMap::new();
+        let config = crate::config::Config::build().unwrap();
+        let store = config.load_config().unwrap();
         let mut key = "&".to_string();
         let mut value = "b".to_string();
         let mut cmd = parse_arguments("set & b".to_string()).unwrap();
@@ -279,7 +279,7 @@ mod tests {
         assert_eq!(cmd.value, Some(value.clone()));
 
         let path = PathBuf::from("local_storage.json");
-        let mut exec = execute_command(cmd, path.clone(), &mut store);
+        let mut exec = execute_command(cmd, path.clone(), store.clone());
         assert_eq!(
             exec,
             Ok(format!("key: {}, value: {}", key, "b".to_string()))
@@ -293,7 +293,7 @@ mod tests {
         assert_eq!(cmd.key, key);
         assert_eq!(cmd.value, Some(value));
 
-        exec = execute_command(cmd, path.clone(), &mut store);
+        exec = execute_command(cmd, path.clone(), store.clone());
         assert_eq!(
             exec,
             Ok(format!("key: {}, value: {}", key, "asdf".to_string()))
@@ -304,7 +304,7 @@ mod tests {
         assert_eq!(cmd.key, "default");
         assert_eq!(cmd.value, None);
 
-        exec = execute_command(cmd, path, &mut store);
+        exec = execute_command(cmd, path, store);
         assert_eq!(exec, Ok(format!("database cleared")));
 
         let file = fs::OpenOptions::new()
@@ -319,8 +319,8 @@ mod tests {
 
     #[test]
     fn exit_no_exit_process() {
-        let _config = crate::config::Config::build().unwrap();
-        let mut store = HashMap::new();
+        let config = crate::config::Config::build().unwrap();
+        let store = config.load_config().unwrap();
         let mut key = "&".to_string();
         let mut value = "b".to_string();
         let mut cmd = parse_arguments("set & b".to_string()).unwrap();
@@ -329,7 +329,7 @@ mod tests {
         assert_eq!(cmd.value, Some(value.clone()));
 
         let path = PathBuf::from("local_storage.json");
-        let mut exec = execute_command(cmd, path.clone(), &mut store);
+        let mut exec = execute_command(cmd, path.clone(), store.clone());
         assert_eq!(
             exec,
             Ok(format!("key: {}, value: {}", key, "b".to_string()))
@@ -343,7 +343,7 @@ mod tests {
         assert_eq!(cmd.key, key);
         assert_eq!(cmd.value, Some(value));
 
-        exec = execute_command(cmd, path.clone(), &mut store);
+        exec = execute_command(cmd, path.clone(), store.clone());
         assert_eq!(
             exec,
             Ok(format!("key: {}, value: {}", key, "asdf".to_string()))
@@ -354,7 +354,7 @@ mod tests {
         assert_eq!(cmd.key, "default");
         assert_eq!(cmd.value, None);
 
-        exec = execute_command(cmd, path.clone(), &mut store);
+        exec = execute_command(cmd, path.clone(), store);
         assert_eq!(exec, Ok(format!("database cleared")));
 
         let file = fs::OpenOptions::new()

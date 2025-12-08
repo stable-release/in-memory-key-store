@@ -54,4 +54,8 @@ impl Config {
     pub fn return_local_storage_path(&self) -> Result<PathBuf, String> {
         Ok(self.local_storage.clone())
     }
+
+    // pub fn return_memory_store(&self) -> Result<Arc<RwLock<HashMap<String, String>>>,String> {
+    //     Ok(Arc::clone(&self.memory_store))
+    // }
 }
