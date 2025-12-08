@@ -3,20 +3,23 @@ use std::{
     env::{self, Args},
     fs::{self, File},
     io::BufReader,
-    path::PathBuf,
+    path::PathBuf, sync::{Arc, RwLock},
 };
 
 use serde_json::Value;
 
 pub struct Config {
     local_storage: PathBuf,
+    in_memory: Arc<RwLock<HashMap<String, String>>>
 }
 
 impl Config {
     fn new(_args: Args) -> Config {
         let path = PathBuf::from("local_storage.json");
+        let lock: Arc<RwLock<HashMap<String,String>>> = Arc::new(RwLock::new(HashMap::new()));
         Config {
             local_storage: path,
+            in_memory: lock
         }
     }
 
