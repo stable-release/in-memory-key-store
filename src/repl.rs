@@ -1,4 +1,8 @@
-use std::{io, path::PathBuf};
+use std::{
+    io,
+    path::PathBuf,
+    thread::{self, spawn},
+};
 
 use crate::store::memory::{execute_command, parse_arguments};
 
@@ -11,28 +15,32 @@ pub fn runtime(config: crate::config::Config) -> Result<(), String> {
     // let mut store: HashMap<String, String> = HashMap::new();
     let stdin = io::stdin();
 
-    for line in stdin.lines() {
-        let command = match parse_arguments(line.unwrap()) {
-            Ok(c) => c,
-            Err(e) => {
-                eprintln!("{}", e);
-                continue;
-            }
-        };
+    let handle = thread::spawn(move || {
+        for line in stdin.lines() {
+            let command = match parse_arguments(line.unwrap()) {
+                Ok(c) => c,
+                Err(e) => {
+                    eprintln!("{}", e);
+                    continue;
+                }
+            };
 
-        let path = match config.return_local_storage_path() {
-            Ok(p) => p,
-            Err(_) => PathBuf::from("local_storage_overwrite.json"),
-        };
+            let path = match config.return_local_storage_path() {
+                Ok(p) => p,
+                Err(_) => PathBuf::from("local_storage_overwrite.json"),
+            };
 
-        match execute_command(command, path, store.clone()) {
-            Ok(output) => println!("{}", output),
-            Err(e) => {
-                eprintln!("{}", e);
-                continue;
+            match execute_command(command, path, store.clone()) {
+                Ok(output) => println!("{}", output),
+                Err(e) => {
+                    eprintln!("{}", e);
+                    continue;
+                }
             }
         }
-    }
+    });
+
+    handle.join().unwrap();
 
     Ok(())
 }
@@ -41,11 +49,9 @@ pub fn runtime(config: crate::config::Config) -> Result<(), String> {
 mod tests {
     // use crate::repl::runtime;
 
-
     // #[test]
     // fn repl_valid() {
     //         let config = crate::config::Config::build().unwrap();
     //         let repl = runtime(config);
     // }
-
 }

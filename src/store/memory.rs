@@ -13,14 +13,7 @@ pub enum Commands {
 }
 
 impl Commands {
-    // fn execute(&self, key: Option<&str>, value: Option<&str>) -> Result<(), String> {
-    //     match self {
-    //         Commands::Set => Ok(()),
-    //         Commands::Delete => Ok(()),
-    //         Commands::Clear => Ok(()),
-    //         _ => Ok(())
-    //     }
-    // }
+    // TODO: Add multiple calls ie. set x100
 }
 
 pub struct Command {
