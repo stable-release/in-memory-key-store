@@ -27,7 +27,7 @@ pub struct Command {
     value: Option<String>,
 }
 
-pub fn parse_arguments(line: String) -> Result<Command, String> {
+pub fn parse_arguments(line: String) -> Result<(Command, i64), String> {
     let mut args = line.split_whitespace();
 
     let command = match args.next() {
@@ -44,17 +44,26 @@ pub fn parse_arguments(line: String) -> Result<Command, String> {
 
     let value = args.next().map(|v| v.to_string());
 
-    Ok(Command {
-        command,
-        key,
-        value,
-    })
+    let multiplier: i64 = match args.next().map(|v| v.trim().parse::<i64>().unwrap()) {
+        Some(n) => n,
+        None => 0,
+    };
+
+    Ok((
+        Command {
+            command,
+            key,
+            value,
+        },
+        multiplier,
+    ))
 }
 
 pub fn execute_command(
     command: Command,
     config_path: PathBuf,
     store: Arc<RwLock<HashMap<String, String>>>,
+    multiplier: i64,
 ) -> Result<String, String> {
     match command.command {
         Commands::Set => {
@@ -129,13 +138,13 @@ mod tests {
         let store = config.load_config().unwrap();
         let key = "&".to_string();
         let value = "b".to_string();
-        let cmd = parse_arguments("set & b".to_string()).unwrap();
+        let (cmd, multiplier) = parse_arguments("set & b".to_string()).unwrap();
         assert_eq!(cmd.command, Commands::Set);
         assert_eq!(cmd.key, key);
         assert_eq!(cmd.value, Some(value));
 
         let path = PathBuf::from("local_storage.json");
-        let exec = execute_command(cmd, path, store);
+        let exec = execute_command(cmd, path, store, multiplier);
         assert_eq!(
             exec,
             Ok(format!("key: {}, value: {}", key, "b".to_string()))
@@ -163,25 +172,25 @@ mod tests {
         let store = config.load_config().unwrap();
         let key = "&".to_string();
         let value = "b".to_string();
-        let mut cmd = parse_arguments("set & b".to_string()).unwrap();
+        let (mut cmd, multiplier) = parse_arguments("set & b".to_string()).unwrap();
         assert_eq!(cmd.command, Commands::Set);
         assert_eq!(cmd.key, key);
         assert_eq!(cmd.value, Some(value));
 
         let path = PathBuf::from("local_storage.json");
-        let mut exec = execute_command(cmd, path.clone(), store.clone());
+        let mut exec = execute_command(cmd, path.clone(), store.clone(), multiplier);
         assert_eq!(
             exec,
             Ok(format!("key: {}, value: {}", key, "b".to_string()))
         );
         assert!(fs::exists("local_storage.json").unwrap());
 
-        cmd = parse_arguments("get &".to_string()).unwrap();
+        (cmd, _) = parse_arguments("get &".to_string()).unwrap();
         assert_eq!(cmd.command, Commands::Get);
         assert_eq!(cmd.key, key);
         assert_eq!(cmd.value, None);
 
-        exec = execute_command(cmd, path, store);
+        exec = execute_command(cmd, path, store, multiplier);
         assert_eq!(
             exec,
             Ok(format!("key: {}, value: {}", key, "b".to_string()))
@@ -208,25 +217,25 @@ mod tests {
         let store = config.load_config().unwrap();
         let key = "&".to_string();
         let value = "b".to_string();
-        let mut cmd = parse_arguments("set & b".to_string()).unwrap();
+        let (mut cmd, multiplier) = parse_arguments("set & b".to_string()).unwrap();
         assert_eq!(cmd.command, Commands::Set);
         assert_eq!(cmd.key, key);
         assert_eq!(cmd.value, Some(value));
 
         let path = PathBuf::from("local_storage.json");
-        let mut exec = execute_command(cmd, path.clone(), store.clone());
+        let mut exec = execute_command(cmd, path.clone(), store.clone(), multiplier);
         assert_eq!(
             exec,
             Ok(format!("key: {}, value: {}", key, "b".to_string()))
         );
         assert!(fs::exists("local_storage.json").unwrap());
 
-        cmd = parse_arguments("list".to_string()).unwrap();
+        (cmd, _) = parse_arguments("list".to_string()).unwrap();
         assert_eq!(cmd.command, Commands::List);
         assert_eq!(cmd.key, "default");
         assert_eq!(cmd.value, None);
 
-        exec = execute_command(cmd, path, store);
+        exec = execute_command(cmd, path, store, multiplier);
         assert_eq!(
             exec,
             Ok(format!("[\"key '{}', value '{}'\"]", key, "b".to_string()))
@@ -244,10 +253,7 @@ mod tests {
             Err(_e) => panic!("Invalid json"),
         };
         let v_object = v.as_object().unwrap();
-        assert_eq!(
-            v_object.get("&"),
-            Some(&serde_json::to_value("b").unwrap())
-        );
+        assert_eq!(v_object.get("&"), Some(&serde_json::to_value("b").unwrap()));
     }
 
     #[test]
@@ -256,25 +262,25 @@ mod tests {
         let store = config.load_config().unwrap();
         let key = "&".to_string();
         let value = "b".to_string();
-        let mut cmd = parse_arguments("set & b".to_string()).unwrap();
+        let (mut cmd, multiplier) = parse_arguments("set & b".to_string()).unwrap();
         assert_eq!(cmd.command, Commands::Set);
         assert_eq!(cmd.key, key);
         assert_eq!(cmd.value, Some(value));
 
         let path = PathBuf::from("local_storage.json");
-        let mut exec = execute_command(cmd, path.clone(), store.clone());
+        let mut exec = execute_command(cmd, path.clone(), store.clone(), multiplier);
         assert_eq!(
             exec,
             Ok(format!("key: {}, value: {}", key, "b".to_string()))
         );
         assert!(fs::exists("local_storage.json").unwrap());
 
-        cmd = parse_arguments("delete &".to_string()).unwrap();
+        (cmd, _) = parse_arguments("delete &".to_string()).unwrap();
         assert_eq!(cmd.command, Commands::Delete);
         assert_eq!(cmd.key, "&");
         assert_eq!(cmd.value, None);
 
-        exec = execute_command(cmd, path, store);
+        exec = execute_command(cmd, path, store, multiplier);
         assert_eq!(exec, Ok(format!("key removed: &")));
 
         let file = fs::OpenOptions::new()
@@ -289,10 +295,7 @@ mod tests {
             Err(_e) => panic!("Invalid json"),
         };
         let v_object = v.as_object().unwrap();
-        assert_eq!(
-            v_object.get("&"),
-            None
-        );
+        assert_eq!(v_object.get("&"), None);
     }
 
     #[test]
@@ -301,13 +304,13 @@ mod tests {
         let store = config.load_config().unwrap();
         let mut key = "&".to_string();
         let mut value = "b".to_string();
-        let mut cmd = parse_arguments("set & b".to_string()).unwrap();
+        let (mut cmd, multiplier) = parse_arguments("set & b".to_string()).unwrap();
         assert_eq!(cmd.command, Commands::Set);
         assert_eq!(cmd.key, key);
         assert_eq!(cmd.value, Some(value.clone()));
 
         let path = PathBuf::from("local_storage.json");
-        let mut exec = execute_command(cmd, path.clone(), store.clone());
+        let mut exec = execute_command(cmd, path.clone(), store.clone(), multiplier);
         assert_eq!(
             exec,
             Ok(format!("key: {}, value: {}", key, "b".to_string()))
@@ -316,23 +319,23 @@ mod tests {
 
         key = "70".to_string();
         value = "asdf".to_string();
-        cmd = parse_arguments("set 70 asdf".to_string()).unwrap();
+        (cmd, _) = parse_arguments("set 70 asdf".to_string()).unwrap();
         assert_eq!(cmd.command, Commands::Set);
         assert_eq!(cmd.key, key);
         assert_eq!(cmd.value, Some(value));
 
-        exec = execute_command(cmd, path.clone(), store.clone());
+        exec = execute_command(cmd, path.clone(), store.clone(), multiplier);
         assert_eq!(
             exec,
             Ok(format!("key: {}, value: {}", key, "asdf".to_string()))
         );
 
-        cmd = parse_arguments("clear".to_string()).unwrap();
+        (cmd, _) = parse_arguments("clear".to_string()).unwrap();
         assert_eq!(cmd.command, Commands::Clear);
         assert_eq!(cmd.key, "default");
         assert_eq!(cmd.value, None);
 
-        exec = execute_command(cmd, path, store);
+        exec = execute_command(cmd, path, store, multiplier);
         assert_eq!(exec, Ok(format!("database cleared")));
 
         let file = fs::OpenOptions::new()
@@ -351,13 +354,13 @@ mod tests {
         let store = config.load_config().unwrap();
         let mut key = "&".to_string();
         let mut value = "b".to_string();
-        let mut cmd = parse_arguments("set & b".to_string()).unwrap();
+        let (mut cmd, multiplier) = parse_arguments("set & b".to_string()).unwrap();
         assert_eq!(cmd.command, Commands::Set);
         assert_eq!(cmd.key, key);
         assert_eq!(cmd.value, Some(value.clone()));
 
         let path = PathBuf::from("local_storage.json");
-        let mut exec = execute_command(cmd, path.clone(), store.clone());
+        let mut exec = execute_command(cmd, path.clone(), store.clone(), multiplier);
         assert_eq!(
             exec,
             Ok(format!("key: {}, value: {}", key, "b".to_string()))
@@ -366,23 +369,23 @@ mod tests {
 
         key = "70".to_string();
         value = "asdf".to_string();
-        cmd = parse_arguments("set 70 asdf".to_string()).unwrap();
+        (cmd, _) = parse_arguments("set 70 asdf".to_string()).unwrap();
         assert_eq!(cmd.command, Commands::Set);
         assert_eq!(cmd.key, key);
         assert_eq!(cmd.value, Some(value));
 
-        exec = execute_command(cmd, path.clone(), store.clone());
+        exec = execute_command(cmd, path.clone(), store.clone(), multiplier);
         assert_eq!(
             exec,
             Ok(format!("key: {}, value: {}", key, "asdf".to_string()))
         );
 
-        cmd = parse_arguments("clear".to_string()).unwrap();
+        (cmd, _) = parse_arguments("clear".to_string()).unwrap();
         assert_eq!(cmd.command, Commands::Clear);
         assert_eq!(cmd.key, "default");
         assert_eq!(cmd.value, None);
 
-        exec = execute_command(cmd, path.clone(), store);
+        exec = execute_command(cmd, path.clone(), store, multiplier);
         assert_eq!(exec, Ok(format!("database cleared")));
 
         let file = fs::OpenOptions::new()
@@ -394,7 +397,7 @@ mod tests {
         let v: serde_json::Value = serde_json::from_reader(reader).unwrap();
         assert_eq!("{}", v.to_string());
 
-        cmd = parse_arguments("exit".to_string()).unwrap();
+        (cmd, _) = parse_arguments("exit".to_string()).unwrap();
         assert_eq!(cmd.command, Commands::Exit);
         assert_eq!(cmd.key, "default");
         assert_eq!(cmd.value, None);

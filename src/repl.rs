@@ -15,7 +15,7 @@ pub fn runtime(config: crate::config::Config) -> Result<(), String> {
     // let mut store: HashMap<String, String> = HashMap::new();
     let stdin = io::stdin();
     for line in stdin.lines() {
-        let command = match parse_arguments(line.unwrap()) {
+        let (command, multiplier) = match parse_arguments(line.unwrap()) {
             Ok(c) => c,
             Err(e) => {
                 eprintln!("{}", e);
@@ -28,7 +28,7 @@ pub fn runtime(config: crate::config::Config) -> Result<(), String> {
             Err(_) => PathBuf::from("local_storage_overwrite.json"),
         };
 
-        match execute_command(command, path, store.clone()) {
+        match execute_command(command, path, store.clone(), multiplier) {
             Ok(output) => println!("{}", output),
             Err(e) => {
                 eprintln!("{}", e);
