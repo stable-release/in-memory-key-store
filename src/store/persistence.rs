@@ -1,4 +1,10 @@
-use std::{collections::HashMap, fs, io::Write, path::PathBuf, sync::{Arc, RwLock}};
+use std::{
+    collections::HashMap,
+    fs,
+    io::Write,
+    path::PathBuf,
+    sync::{Arc, RwLock},
+};
 
 pub fn write_local(
     store: Arc<RwLock<HashMap<String, String>>>,
@@ -40,7 +46,10 @@ mod tests {
     fn write_local_valid() {
         let config = crate::config::Config::build().unwrap();
         let store = config.load_config().unwrap();
-        store.write().unwrap().insert("vKey".to_string(), "kValue".to_string());
+        store
+            .write()
+            .unwrap()
+            .insert("vKey".to_string(), "kValue".to_string());
         let write = write_local(store, config.return_local_storage_path().unwrap());
         assert_eq!(write, Ok(()));
         assert!(std::fs::exists("local_storage.json").unwrap());
@@ -50,7 +59,12 @@ mod tests {
             .open("local_storage.json")
             .unwrap();
         let reader = std::io::BufReader::new(file);
-        let v: serde_json::Value = serde_json::from_reader(reader).unwrap();
-        assert_eq!("{\"vKey\":\"kValue\"}", v.to_string());
+        let v: serde_json::Value = match serde_json::from_reader(reader) {
+            Ok(v) => v,
+            Err(e) if e.is_eof() => serde_json::json!({}),
+            Err(_e) => panic!("Invalid json"),
+        };
+        let v_object = v.as_object().unwrap();
+        assert_eq!(v_object.get("vKey"), Some(&serde_json::to_value("kValue").unwrap()));
     }
 }

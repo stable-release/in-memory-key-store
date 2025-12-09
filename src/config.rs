@@ -41,7 +41,11 @@ impl Config {
         let file = File::open(&self.local_storage).unwrap();
         let reader = BufReader::new(file);
 
-        let v: Value = serde_json::from_reader(reader).unwrap();
+        let v: Value = match serde_json::from_reader(reader) {
+            Ok(v) => v,
+            Err(e) if e.is_eof() => serde_json::json!({}),
+            Err(_e) => panic!("Invalid json")
+        };
 
         for (key, value) in v.as_object().unwrap() {
             // println!("{:?} {:?}", key, value.as_str().unwrap());
@@ -54,8 +58,5 @@ impl Config {
     pub fn return_local_storage_path(&self) -> Result<PathBuf, String> {
         Ok(self.local_storage.clone())
     }
-
-    // pub fn return_memory_store(&self) -> Result<Arc<RwLock<HashMap<String, String>>>,String> {
-    //     Ok(Arc::clone(&self.memory_store))
-    // }
+    
 }

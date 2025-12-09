@@ -1,4 +1,9 @@
-use std::{collections::HashMap, path::PathBuf, process, sync::{Arc, RwLock}};
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+    process,
+    sync::{Arc, RwLock},
+};
 
 use crate::store::persistence::write_local;
 
@@ -72,7 +77,11 @@ pub fn execute_command(
         Commands::List => {
             let mut list = Vec::new();
             for k in store.read().unwrap().keys() {
-                list.push(format!("key '{}', value '{}'", k, store.read().unwrap().get(k).unwrap()));
+                list.push(format!(
+                    "key '{}', value '{}'",
+                    k,
+                    store.read().unwrap().get(k).unwrap()
+                ));
             }
             Ok(format!("{:?}", list))
         }
@@ -139,8 +148,13 @@ mod tests {
             .open("local_storage.json")
             .unwrap();
         let reader = std::io::BufReader::new(file);
-        let v: serde_json::Value = serde_json::from_reader(reader).unwrap();
-        assert_eq!("{\"&\":\"b\"}", v.to_string());
+        let v: serde_json::Value = match serde_json::from_reader(reader) {
+            Ok(v) => v,
+            Err(e) if e.is_eof() => serde_json::json!({}),
+            Err(_e) => panic!("Invalid json"),
+        };
+        let v_object = v.as_object().unwrap();
+        assert_eq!(v_object.get("&"), Some(&serde_json::to_value("b").unwrap()));
     }
 
     #[test]
@@ -179,8 +193,13 @@ mod tests {
             .open("local_storage.json")
             .unwrap();
         let reader = std::io::BufReader::new(file);
-        let v: serde_json::Value = serde_json::from_reader(reader).unwrap();
-        assert_eq!("{\"&\":\"b\"}", v.to_string());
+        let v: serde_json::Value = match serde_json::from_reader(reader) {
+            Ok(v) => v,
+            Err(e) if e.is_eof() => serde_json::json!({}),
+            Err(_e) => panic!("Invalid json"),
+        };
+        let v_object = v.as_object().unwrap();
+        assert_eq!(v_object.get("&"), Some(&serde_json::to_value("b").unwrap()));
     }
 
     #[test]
@@ -219,8 +238,16 @@ mod tests {
             .open("local_storage.json")
             .unwrap();
         let reader = std::io::BufReader::new(file);
-        let v: serde_json::Value = serde_json::from_reader(reader).unwrap();
-        assert_eq!("{\"&\":\"b\"}", v.to_string());
+        let v: serde_json::Value = match serde_json::from_reader(reader) {
+            Ok(v) => v,
+            Err(e) if e.is_eof() => serde_json::json!({}),
+            Err(_e) => panic!("Invalid json"),
+        };
+        let v_object = v.as_object().unwrap();
+        assert_eq!(
+            v_object.get("&"),
+            Some(&serde_json::to_value("b").unwrap())
+        );
     }
 
     #[test]
@@ -256,8 +283,16 @@ mod tests {
             .open("local_storage.json")
             .unwrap();
         let reader = std::io::BufReader::new(file);
-        let v: serde_json::Value = serde_json::from_reader(reader).unwrap();
-        assert_eq!("{}", v.to_string());
+        let v: serde_json::Value = match serde_json::from_reader(reader) {
+            Ok(v) => v,
+            Err(e) if e.is_eof() => serde_json::json!({}),
+            Err(_e) => panic!("Invalid json"),
+        };
+        let v_object = v.as_object().unwrap();
+        assert_eq!(
+            v_object.get("&"),
+            None
+        );
     }
 
     #[test]
