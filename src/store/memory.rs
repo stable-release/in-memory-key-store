@@ -3,6 +3,7 @@ use std::{
     path::PathBuf,
     process,
     sync::{Arc, RwLock},
+    thread::{self, JoinHandle},
 };
 
 use crate::store::persistence::write_local;
@@ -17,14 +18,33 @@ pub enum Commands {
     Exit,
 }
 
-impl Commands {
-    // TODO: Add multiple calls ie. set x100
+impl Clone for Commands {
+    fn clone(&self) -> Commands {
+        match self {
+            Commands::Get => Commands::Get,
+            Commands::List => Commands::List,
+            Commands::Set => Commands::Set,
+            Commands::Delete => Commands::Delete,
+            Commands::Clear => Commands::Clear,
+            Commands::Exit => Commands::Exit,
+        }
+    }
 }
 
 pub struct Command {
     command: Commands,
     key: String,
     value: Option<String>,
+}
+
+impl Clone for Command {
+    fn clone(&self) -> Command {
+        Command {
+            command: self.command.clone(),
+            key: self.key.clone(),
+            value: self.value.clone(),
+        }
+    }
 }
 
 pub fn parse_arguments(line: String) -> Result<(Command, i64), String> {
@@ -65,6 +85,32 @@ pub fn execute_command(
     store: Arc<RwLock<HashMap<String, String>>>,
     multiplier: i64,
 ) -> Result<String, String> {
+    let mut handles: Vec<JoinHandle<()>> = Vec::new();
+
+    for i in 0..multiplier {
+        let c = command.clone();
+        let s = Arc::clone(&store);
+        let config = config_path.clone();
+        let handle = thread::spawn(move || {
+            exec(c, config, s, i).unwrap();
+        });
+
+        handles.push(handle);
+    }
+
+    for handle in handles {
+        handle.join().unwrap();
+    }
+
+    Ok("".to_string())
+}
+
+fn exec(
+    command: Command,
+    config_path: PathBuf,
+    store: Arc<RwLock<HashMap<String, String>>>,
+    increment: i64,
+) -> Result<String, String> {
     match command.command {
         Commands::Set => {
             require_key(&command)?;
@@ -74,7 +120,7 @@ pub fn execute_command(
             store.write().unwrap().insert(key.clone(), value.clone());
             write_local(store, config_path).unwrap();
 
-            Ok(format!("key: {}, value: {}", key, value))
+            Ok::<std::string::String, String>(format!("key: {}, value: {}", key, value))
         }
         Commands::Get => {
             require_key(&command)?;
@@ -144,7 +190,7 @@ mod tests {
         assert_eq!(cmd.value, Some(value));
 
         let path = PathBuf::from("local_storage.json");
-        let exec = execute_command(cmd, path, store, multiplier);
+        let exec = exec(cmd, path, store, multiplier);
         assert_eq!(
             exec,
             Ok(format!("key: {}, value: {}", key, "b".to_string()))
@@ -178,9 +224,9 @@ mod tests {
         assert_eq!(cmd.value, Some(value));
 
         let path = PathBuf::from("local_storage.json");
-        let mut exec = execute_command(cmd, path.clone(), store.clone(), multiplier);
+        let mut e = exec(cmd, path.clone(), store.clone(), multiplier);
         assert_eq!(
-            exec,
+            e,
             Ok(format!("key: {}, value: {}", key, "b".to_string()))
         );
         assert!(fs::exists("local_storage.json").unwrap());
@@ -190,9 +236,9 @@ mod tests {
         assert_eq!(cmd.key, key);
         assert_eq!(cmd.value, None);
 
-        exec = execute_command(cmd, path, store, multiplier);
+        e = exec(cmd, path, store, multiplier);
         assert_eq!(
-            exec,
+            e,
             Ok(format!("key: {}, value: {}", key, "b".to_string()))
         );
 
@@ -223,9 +269,9 @@ mod tests {
         assert_eq!(cmd.value, Some(value));
 
         let path = PathBuf::from("local_storage.json");
-        let mut exec = execute_command(cmd, path.clone(), store.clone(), multiplier);
+        let mut e = exec(cmd, path.clone(), store.clone(), multiplier);
         assert_eq!(
-            exec,
+            e,
             Ok(format!("key: {}, value: {}", key, "b".to_string()))
         );
         assert!(fs::exists("local_storage.json").unwrap());
@@ -235,9 +281,9 @@ mod tests {
         assert_eq!(cmd.key, "default");
         assert_eq!(cmd.value, None);
 
-        exec = execute_command(cmd, path, store, multiplier);
+        e = exec(cmd, path, store, multiplier);
         assert_eq!(
-            exec,
+            e,
             Ok(format!("[\"key '{}', value '{}'\"]", key, "b".to_string()))
         );
 
@@ -268,9 +314,9 @@ mod tests {
         assert_eq!(cmd.value, Some(value));
 
         let path = PathBuf::from("local_storage.json");
-        let mut exec = execute_command(cmd, path.clone(), store.clone(), multiplier);
+        let mut e = exec(cmd, path.clone(), store.clone(), multiplier);
         assert_eq!(
-            exec,
+            e,
             Ok(format!("key: {}, value: {}", key, "b".to_string()))
         );
         assert!(fs::exists("local_storage.json").unwrap());
@@ -280,8 +326,8 @@ mod tests {
         assert_eq!(cmd.key, "&");
         assert_eq!(cmd.value, None);
 
-        exec = execute_command(cmd, path, store, multiplier);
-        assert_eq!(exec, Ok(format!("key removed: &")));
+        e = exec(cmd, path, store, multiplier);
+        assert_eq!(e, Ok(format!("key removed: &")));
 
         let file = fs::OpenOptions::new()
             .read(true)
@@ -310,9 +356,9 @@ mod tests {
         assert_eq!(cmd.value, Some(value.clone()));
 
         let path = PathBuf::from("local_storage.json");
-        let mut exec = execute_command(cmd, path.clone(), store.clone(), multiplier);
+        let mut e = exec(cmd, path.clone(), store.clone(), multiplier);
         assert_eq!(
-            exec,
+            e,
             Ok(format!("key: {}, value: {}", key, "b".to_string()))
         );
         assert!(fs::exists("local_storage.json").unwrap());
@@ -324,9 +370,9 @@ mod tests {
         assert_eq!(cmd.key, key);
         assert_eq!(cmd.value, Some(value));
 
-        exec = execute_command(cmd, path.clone(), store.clone(), multiplier);
+        e = exec(cmd, path.clone(), store.clone(), multiplier);
         assert_eq!(
-            exec,
+            e,
             Ok(format!("key: {}, value: {}", key, "asdf".to_string()))
         );
 
@@ -335,8 +381,8 @@ mod tests {
         assert_eq!(cmd.key, "default");
         assert_eq!(cmd.value, None);
 
-        exec = execute_command(cmd, path, store, multiplier);
-        assert_eq!(exec, Ok(format!("database cleared")));
+        e = exec(cmd, path, store, multiplier);
+        assert_eq!(e, Ok(format!("database cleared")));
 
         let file = fs::OpenOptions::new()
             .read(true)
@@ -360,9 +406,9 @@ mod tests {
         assert_eq!(cmd.value, Some(value.clone()));
 
         let path = PathBuf::from("local_storage.json");
-        let mut exec = execute_command(cmd, path.clone(), store.clone(), multiplier);
+        let mut e = exec(cmd, path.clone(), store.clone(), multiplier);
         assert_eq!(
-            exec,
+            e,
             Ok(format!("key: {}, value: {}", key, "b".to_string()))
         );
         assert!(fs::exists("local_storage.json").unwrap());
@@ -374,9 +420,9 @@ mod tests {
         assert_eq!(cmd.key, key);
         assert_eq!(cmd.value, Some(value));
 
-        exec = execute_command(cmd, path.clone(), store.clone(), multiplier);
+        e = exec(cmd, path.clone(), store.clone(), multiplier);
         assert_eq!(
-            exec,
+            e,
             Ok(format!("key: {}, value: {}", key, "asdf".to_string()))
         );
 
@@ -385,8 +431,8 @@ mod tests {
         assert_eq!(cmd.key, "default");
         assert_eq!(cmd.value, None);
 
-        exec = execute_command(cmd, path.clone(), store, multiplier);
-        assert_eq!(exec, Ok(format!("database cleared")));
+        e = exec(cmd, path.clone(), store, multiplier);
+        assert_eq!(e, Ok(format!("database cleared")));
 
         let file = fs::OpenOptions::new()
             .read(true)
