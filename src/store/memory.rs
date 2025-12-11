@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     path::PathBuf,
     process,
-    sync::{Arc, RwLock},
+    sync::{Arc, Mutex, RwLock, mpsc},
     thread::{self, JoinHandle},
 };
 
@@ -79,30 +79,74 @@ pub fn parse_arguments(line: String) -> Result<(Command, i64), String> {
     ))
 }
 
+const LOCK: Mutex<bool> = Mutex::new(false);
+
 pub fn execute_command(
     command: Command,
     config_path: PathBuf,
     store: Arc<RwLock<HashMap<String, String>>>,
     multiplier: i64,
-) -> Result<String, String> {
-    let mut handles: Vec<JoinHandle<()>> = Vec::new();
+) -> Result<Vec<String>, String> {
+    // let mut handles: Vec<JoinHandle<()>> = Vec::new();
+
+    // for i in 0..multiplier {
+    //     let c = command.clone();
+    //     let s = Arc::clone(&store);
+    //     let config = config_path.clone();
+    //     let handle = thread::spawn(move || {
+    //         exec(c, config, s, i).unwrap();
+    //     });
+
+    //     handles.push(handle);
+    // }
+
+    // for handle in handles {
+    //     handle.join().unwrap();
+    // }
+
+    // Ok("".to_string())
+    let (tx, rx) = mpsc::channel();
+    let mut handles = Vec::new();
 
     for i in 0..multiplier {
+        let tx = tx.clone();
         let c = command.clone();
-        let s = Arc::clone(&store);
         let config = config_path.clone();
+        let s = store.clone();
+        let increment = i.clone();
         let handle = thread::spawn(move || {
-            exec(c, config, s, i).unwrap();
+            let result = exec(c, config, s, increment);
+            tx.send(result).expect("Channel closed");
         });
-
         handles.push(handle);
     }
 
-    for handle in handles {
-        handle.join().unwrap();
+    drop(tx);
+
+    let mut results = Vec::new();
+    let mut errors = Vec::new();
+
+    for rec in rx {
+        match rec {
+            Ok(i) => results.push(i),
+            Err(e) => errors.push(e),
+        }
     }
 
-    Ok("".to_string())
+    for handle in handles {
+        handle.join().expect("Thread panicked");
+    }
+
+    if !errors.is_empty() {
+        eprint!("{} errors occurred:", errors.len());
+        for err in &errors {
+            eprintln!(" {}", err);
+        }
+
+        return Err(errors.into_iter().next().unwrap());
+    }
+
+    Ok(results)
 }
 
 fn exec(
@@ -111,15 +155,24 @@ fn exec(
     store: Arc<RwLock<HashMap<String, String>>>,
     increment: i64,
 ) -> Result<String, String> {
+    while LOCK.try_lock().is_err() {
+
+    }
+    let binding = LOCK;
+    let l = binding.lock().unwrap();
+
     match command.command {
         Commands::Set => {
             require_key(&command)?;
             require_value(&command)?;
             let key = command.key;
             let value = command.value.unwrap();
+            while store.try_write().is_err() {
+
+            }
             store.write().unwrap().insert(key.clone(), value.clone());
             write_local(store, config_path).unwrap();
-
+            l.clone();
             Ok::<std::string::String, String>(format!("key: {}, value: {}", key, value))
         }
         Commands::Get => {

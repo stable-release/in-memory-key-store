@@ -29,7 +29,7 @@ pub fn runtime(config: crate::config::Config) -> Result<(), String> {
         };
 
         match execute_command(command, path, store.clone(), multiplier) {
-            Ok(output) => println!("{}", output),
+            Ok(output) => println!("{:?}", output),
             Err(e) => {
                 eprintln!("{}", e);
                 continue;
