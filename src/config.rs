@@ -1,9 +1,8 @@
 use std::{
-    collections::HashMap,
-    env::{self, Args},
-    fs::{self},
-    path::PathBuf, sync::{Arc, Mutex},
+    collections::HashMap, env::{self, Args}, fs::{self}, io::BufReader, path::PathBuf, sync::{Arc, Mutex}
 };
+
+use serde_json::Value;
 
 pub struct Config {
     local_storage: PathBuf,
@@ -13,7 +12,20 @@ pub struct Config {
 impl Config {
     fn new(_args: Args) -> Config {
         let local_storage = PathBuf::from("local_storage.json");
-        let memory_store: Arc<Mutex<HashMap<String,String>>> = Arc::new(Mutex::new(HashMap::new()));
+
+        let mut hashmap: HashMap<String, String> = HashMap::new();
+        if fs::exists(&local_storage).unwrap() {
+            let file = fs::OpenOptions::new().read(true).open(&local_storage).unwrap();
+            let reader = BufReader::new(file);
+            let v: Value = serde_json::from_reader(reader).unwrap();
+
+            for (key, value) in v.as_object().unwrap() {
+                hashmap.insert(key.to_string(), value.to_string());
+            }
+        }
+
+        let memory_store: Arc<Mutex<HashMap<String,String>>> = Arc::new(Mutex::new(hashmap));
+
         Config {
             local_storage,
             memory_store
