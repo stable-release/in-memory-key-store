@@ -1,52 +1,22 @@
-use std::{
-    io,
-    path::PathBuf,
-    thread::{self},
-};
+use std::{io, thread};
 
-use crate::store::memory::{execute_command, parse_arguments};
+use crate::{config::Config, store::workers::start_worker};
 
-pub fn runtime(config: crate::config::Config) -> Result<(), String> {
-    let store = match config.load_config() {
-        Ok(s) => s,
-        Err(e) => return Err(e),
-    };
+// NEW REPL
+// Spawns worker threads for execution and command handling
 
-    // let mut store: HashMap<String, String> = HashMap::new();
+///
+/// Main Runtime
+/// 
+pub fn runtime(config: Config) -> Result<(), i64> {
+    let tx = start_worker();
+
     let stdin = io::stdin();
     for line in stdin.lines() {
-        let (command, multiplier) = match parse_arguments(line.unwrap()) {
-            Ok(c) => c,
-            Err(e) => {
-                eprintln!("{}", e);
-                continue;
-            }
-        };
-
-        let path = match config.return_local_storage_path() {
-            Ok(p) => p,
-            Err(_) => PathBuf::from("local_storage_overwrite.json"),
-        };
-
-        match execute_command(command, path, store.clone(), multiplier) {
-            Ok(output) => println!("{:?}", output),
-            Err(e) => {
-                eprintln!("{}", e);
-                continue;
-            }
-        }
+        let mut handles = vec![];
+        let mut args = line.unwrap().split_whitespace();
     }
 
+
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    // use crate::repl::runtime;
-
-    // #[test]
-    // fn repl_valid() {
-    //         let config = crate::config::Config::build().unwrap();
-    //         let repl = runtime(config);
-    // }
 }
