@@ -42,13 +42,6 @@ pub fn runtime(config: Config) -> Result<(), String> {
         for h in handles {
             h.join().unwrap();
         }
-
-        // worker_tx.send(Args {
-        //     command: Job::Exit,
-        //     key: None,
-        //     value: None,
-        //     multiplier: None,
-        // });
     }
 
     Ok(())

@@ -64,7 +64,6 @@ impl Args {
             Job::Delete => delete(self.key.as_ref().unwrap(), self.store.clone()),
             Job::Clear => clear(self.store.clone()),
             Job::Exit => exit(),
-            _ => (),
         }
 
         Ok(())
