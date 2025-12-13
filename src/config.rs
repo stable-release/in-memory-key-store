@@ -1,22 +1,31 @@
 use std::{
-    collections::HashMap,
-    env::{self, Args},
-    fs::{self, File},
-    io::BufReader,
-    path::PathBuf, sync::{Arc, RwLock},
+    collections::HashMap, env::{self, Args}, fs::{self}, io::BufReader, path::PathBuf, sync::{Arc, Mutex}
 };
 
 use serde_json::Value;
 
 pub struct Config {
     local_storage: PathBuf,
-    memory_store: Arc<RwLock<HashMap<String, String>>>
+    pub memory_store: Arc<Mutex<HashMap<String, String>>>
 }
 
 impl Config {
     fn new(_args: Args) -> Config {
         let local_storage = PathBuf::from("local_storage.json");
-        let memory_store: Arc<RwLock<HashMap<String,String>>> = Arc::new(RwLock::new(HashMap::new()));
+
+        let mut hashmap: HashMap<String, String> = HashMap::new();
+        if fs::exists(&local_storage).unwrap() {
+            let file = fs::OpenOptions::new().read(true).open(&local_storage).unwrap();
+            let reader = BufReader::new(file);
+            let v: Value = serde_json::from_reader(reader).unwrap();
+
+            for (key, value) in v.as_object().unwrap() {
+                hashmap.insert(key.to_string(), value.to_string());
+            }
+        }
+
+        let memory_store: Arc<Mutex<HashMap<String,String>>> = Arc::new(Mutex::new(hashmap));
+
         Config {
             local_storage,
             memory_store
@@ -36,22 +45,8 @@ impl Config {
         Ok(config)
     }
 
-    pub fn load_config(&self) -> Result<Arc<RwLock<HashMap<String, String>>>, String> {
-        let store = Arc::clone(&self.memory_store);
-        let file = File::open(&self.local_storage).unwrap();
-        let reader = BufReader::new(file);
-
-        let v: Value = serde_json::from_reader(reader).unwrap();
-
-        for (key, value) in v.as_object().unwrap() {
-            // println!("{:?} {:?}", key, value.as_str().unwrap());
-            store.write().unwrap().insert(key.to_owned(), value.as_str().unwrap().to_owned());
-        }
-
-        Ok(store)
-    }
-
     pub fn return_local_storage_path(&self) -> Result<PathBuf, String> {
         Ok(self.local_storage.clone())
     }
+    
 }

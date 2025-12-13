@@ -1,51 +1,55 @@
-use std::{io, path::PathBuf};
+use std::{io, sync::Arc, thread};
 
-use crate::store::memory::{execute_command, parse_arguments};
+use crate::{
+    config::Config,
+    store::{parser::parse_arguments, workers::start_worker},
+};
 
-pub fn runtime(config: crate::config::Config) -> Result<(), String> {
-    let mut store = match config.load_config() {
-        Ok(s) => s,
-        Err(e) => return Err(e),
-    };
+// NEW REPL
+// Spawns worker threads for execution and command handling
 
-    // let mut store: HashMap<String, String> = HashMap::new();
+///
+/// Main Runtime
+///
+pub fn runtime(config: Config) -> Result<(), String> {
+    let worker_tx = start_worker();
+
     let stdin = io::stdin();
-
     for line in stdin.lines() {
-        let command = match parse_arguments(line.unwrap()) {
-            Ok(c) => c,
+        let mut handles = vec![];
+        let job = match parse_arguments(line.unwrap(), Arc::clone(&config.memory_store)) {
+            Ok(a) => a,
             Err(e) => {
                 eprintln!("{}", e);
                 continue;
             }
         };
 
-        let path = match config.return_local_storage_path() {
-            Ok(p) => p,
-            Err(_) => PathBuf::from("local_storage_overwrite.json"),
-        };
+        let multiplier = &job.multiplier.unwrap_or(1);
 
-        match execute_command(command, path, &mut store) {
-            Ok(output) => println!("{}", output),
-            Err(e) => {
-                eprintln!("{}", e);
-                continue;
-            }
+        for _ in 0..*multiplier {
+            let tx = worker_tx.clone();
+            let j = job.clone();
+
+            handles.push(thread::spawn(move || {
+                match tx.send(j) {
+                    Ok(()) => (),
+                    Err(e) => eprintln!("{}", e),
+                };
+            }));
         }
+
+        for h in handles {
+            h.join().unwrap();
+        }
+
+        // worker_tx.send(Args {
+        //     command: Job::Exit,
+        //     key: None,
+        //     value: None,
+        //     multiplier: None,
+        // });
     }
 
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    // use crate::repl::runtime;
-
-
-    // #[test]
-    // fn repl_valid() {
-    //         let config = crate::config::Config::build().unwrap();
-    //         let repl = runtime(config);
-    // }
-
 }
