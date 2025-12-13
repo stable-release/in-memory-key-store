@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::{Arc, Mutex}};
 
-use crate::{config::Config, store::jobs::{Args, Job}};
+use crate::{store::jobs::{Args, Job}};
 
 pub fn parse_arguments(line: String, hashmap: Arc<Mutex<HashMap<String, String>>>) -> Result<Args, String> {
     let mut args = line.split_whitespace();

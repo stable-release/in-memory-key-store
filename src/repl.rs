@@ -4,7 +4,6 @@ use crate::{
     config::Config,
     store::{
         builder::parse_arguments,
-        jobs::{Args, Job},
         workers::start_worker,
     },
 };
@@ -25,7 +24,7 @@ pub fn runtime(config: Config) -> Result<(), String> {
 
         let multiplier = &job.multiplier.unwrap();
 
-        for i in 0..*multiplier {
+        for _ in 0..*multiplier {
             let tx = worker_tx.clone();
             let j = job.clone();
 
