@@ -3,20 +3,20 @@ use std::{
     env::{self, Args},
     fs::{self, File},
     io::BufReader,
-    path::PathBuf, sync::{Arc, RwLock},
+    path::PathBuf, sync::{Arc, Mutex, RwLock},
 };
 
 use serde_json::Value;
 
 pub struct Config {
     local_storage: PathBuf,
-    memory_store: Arc<RwLock<HashMap<String, String>>>
+    pub memory_store: Arc<Mutex<HashMap<String, String>>>
 }
 
 impl Config {
     fn new(_args: Args) -> Config {
         let local_storage = PathBuf::from("local_storage.json");
-        let memory_store: Arc<RwLock<HashMap<String,String>>> = Arc::new(RwLock::new(HashMap::new()));
+        let memory_store: Arc<Mutex<HashMap<String,String>>> = Arc::new(Mutex::new(HashMap::new()));
         Config {
             local_storage,
             memory_store
@@ -36,24 +36,24 @@ impl Config {
         Ok(config)
     }
 
-    pub fn load_config(&self) -> Result<Arc<RwLock<HashMap<String, String>>>, String> {
-        let store = Arc::clone(&self.memory_store);
-        let file = File::open(&self.local_storage).unwrap();
-        let reader = BufReader::new(file);
+    // pub fn load_config(&self) -> Result<Arc<Mutex<HashMap<String, String>>>, String> {
+    //     let store = Arc::clone(&self.memory_store);
+    //     let file = File::open(&self.local_storage).unwrap();
+    //     let reader = BufReader::new(file);
 
-        let v: Value = match serde_json::from_reader(reader) {
-            Ok(v) => v,
-            Err(e) if e.is_eof() => serde_json::json!({}),
-            Err(_e) => panic!("Invalid json")
-        };
+    //     let v: Value = match serde_json::from_reader(reader) {
+    //         Ok(v) => v,
+    //         Err(e) if e.is_eof() => serde_json::json!({}),
+    //         Err(_e) => panic!("Invalid json")
+    //     };
 
-        for (key, value) in v.as_object().unwrap() {
-            // println!("{:?} {:?}", key, value.as_str().unwrap());
-            store.write().unwrap().insert(key.to_owned(), value.as_str().unwrap().to_owned());
-        }
+    //     for (key, value) in v.as_object().unwrap() {
+    //         // println!("{:?} {:?}", key, value.as_str().unwrap());
+    //         Arc::clone(&store).get_mut().unwrap().insert(key.to_owned(), value.as_str().unwrap().to_owned());
+    //     }
 
-        Ok(store)
-    }
+    //     Ok(store)
+    // }
 
     pub fn return_local_storage_path(&self) -> Result<PathBuf, String> {
         Ok(self.local_storage.clone())

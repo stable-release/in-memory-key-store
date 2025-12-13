@@ -1,4 +1,4 @@
-use std::{io, thread};
+use std::{io, sync::Arc, thread};
 
 use crate::{
     config::Config,
@@ -21,13 +21,14 @@ pub fn runtime(config: Config) -> Result<(), String> {
     let stdin = io::stdin();
     for line in stdin.lines() {
         let mut handles = vec![];
-        let job = parse_arguments(line.unwrap())?;
+        let job = parse_arguments(line.unwrap(), Arc::clone(&config.memory_store))?;
 
         let multiplier = &job.multiplier.unwrap();
 
         for i in 0..*multiplier {
             let tx = worker_tx.clone();
             let j = job.clone();
+
             handles.push(thread::spawn(move || {
                 match tx.send(j) {
                     Ok(()) => (),
