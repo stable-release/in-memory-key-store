@@ -34,11 +34,22 @@ pub fn parse_arguments(
             },
             store: hashmap,
         },
+        Some("list") => Args {
+            command: Job::List,
+            key: args.next().map(|k| k.to_string()),
+            value: None,
+            multiplier: match args.next().map(|m| m.trim().parse::<i64>()) {
+                Some(Ok(i)) => Some(i),
+                Some(Err(e)) => return Err(format!("{:?}", e)),
+                None => Some(1),
+            },
+            store: hashmap,
+        },
         Some("delete") => Args {
             command: Job::Delete,
             key: match args.next().map(|k| k.to_string()) {
                 Some(s) => Some(s),
-                None => return Err("Delete must have key".to_string())
+                None => return Err("Delete must have key".to_string()),
             },
             value: None,
             multiplier: match args.next().map(|m| m.trim().parse::<i64>()) {
@@ -46,6 +57,13 @@ pub fn parse_arguments(
                 Some(Err(e)) => return Err(format!("{:?}", e)),
                 None => Some(1),
             },
+            store: hashmap,
+        },
+        Some("clear") => Args {
+            command: Job::Clear,
+            key: None,
+            value: None,
+            multiplier: None,
             store: hashmap,
         },
         Some("exit") => Args {
