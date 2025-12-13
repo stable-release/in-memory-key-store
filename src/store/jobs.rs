@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::{Arc, Mutex}};
+use std::{collections::HashMap, process, sync::{Arc, Mutex}};
 
 use crate::store::persistence::write_local;
 
@@ -17,6 +17,7 @@ impl Clone for Job {
     fn clone(&self) -> Job {
         match self {
             &Job::Set => Job::Set,
+            &Job::Get => Job::Get,
             _ => Job::Exit,
         }
     }
@@ -47,6 +48,8 @@ impl Args {
     pub fn execute(&self) -> Result<(), String> {
         match self.command {
             Job::Set => set(self.key.as_ref().unwrap(), &self.value.as_ref().unwrap(), self.store.clone()),
+            Job::Get => get(self.key.as_ref().unwrap(), self.store.clone()),
+            Job::Exit => exit(),
             _ => (),
         }
 
@@ -60,4 +63,17 @@ fn set(key: &str, value: &str, store: Arc<Mutex<HashMap<String, String>>>) {
     let content = serde_json::to_string(&*store_clone.lock().unwrap()).unwrap();
 
     write_local(content);
+}
+
+fn get(key: &str, store: Arc<Mutex<HashMap<String, String>>>) {
+    let binding = store.lock().unwrap();
+    let value = binding.get(key);
+    match value {
+        Some(v) => println!("key: {}, value: {}", key, v),
+        None => eprintln!("Key not set")
+    }
+}
+
+fn exit() {
+    process::exit(0);
 }

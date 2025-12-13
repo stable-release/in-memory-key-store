@@ -1,4 +1,4 @@
 pub mod jobs;
 pub mod workers;
-pub mod builder;
+pub mod parser;
 pub mod persistence;

@@ -2,10 +2,7 @@ use std::{io, sync::Arc, thread};
 
 use crate::{
     config::Config,
-    store::{
-        builder::parse_arguments,
-        workers::start_worker,
-    },
+    store::{parser::parse_arguments, workers::start_worker},
 };
 
 // NEW REPL
@@ -20,9 +17,15 @@ pub fn runtime(config: Config) -> Result<(), String> {
     let stdin = io::stdin();
     for line in stdin.lines() {
         let mut handles = vec![];
-        let job = parse_arguments(line.unwrap(), Arc::clone(&config.memory_store))?;
+        let job = match parse_arguments(line.unwrap(), Arc::clone(&config.memory_store)) {
+            Ok(a) => a,
+            Err(e) => {
+                eprintln!("{}", e);
+                continue;
+            }
+        };
 
-        let multiplier = &job.multiplier.unwrap();
+        let multiplier = &job.multiplier.unwrap_or(1);
 
         for _ in 0..*multiplier {
             let tx = worker_tx.clone();

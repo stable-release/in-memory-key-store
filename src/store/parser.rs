@@ -13,6 +13,20 @@ pub fn parse_arguments(line: String, hashmap: Arc<Mutex<HashMap<String, String>>
             multiplier: args.next().map(|m| m.trim().parse::<i64>().unwrap()),
             store: hashmap
         },
+        Some("get") => Args {
+            command: Job::Get,
+            key: args.next().map(|k| k.to_string()),
+            value: None,
+            multiplier: args.next().map(|m| m.trim().parse::<i64>().unwrap()),
+            store: hashmap,
+        },
+        Some("exit") => Args {
+            command: Job::Exit,
+            key: None,
+            value: None,
+            multiplier: None,
+            store: hashmap,
+        },
         _ => return Err("Unknown command".to_string()),
     };
 
