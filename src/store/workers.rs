@@ -1,19 +1,14 @@
 use std::{sync::mpsc, thread};
 
-use crate::store::jobs::Job;
+use crate::store::jobs::{Args, Job};
 
-pub fn start_worker() -> mpsc::Sender<Job> {
-    let (tx, rx) = mpsc::channel::<Job>();
+pub fn start_worker() -> mpsc::Sender<Args> {
+    let (tx, rx) = mpsc::channel::<Args>();
 
     thread::spawn(move || {
-        while let Ok(job) = rx.recv() {
-            match job {
-                Job::Get(args) => (),
-                Job::Set(args) => (),
-                Job::Clear(args) => (),
-                _ => ()
-            }
-            break;
+        while let Ok(args) = rx.recv() {
+            let e = args.execute().unwrap();
+
         }
     });
 
